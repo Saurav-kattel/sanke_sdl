@@ -6,10 +6,10 @@
 #include <time.h>
 
 #define FRAME_TIME 16.67
-#define MOVING_SPEED 10
 #define SCREEN_WIDTH 1400
 #define SCREEN_HEIGHT 800
 
+int MOVING_SPEED = 3;
 int SCORE = 0;
 int current_direction = 1;
 int CURRENT_LENGTH = 0;
@@ -257,10 +257,10 @@ int main(int argc, char* argv[]) {
         if (checkCollision(&snakes[0], &fp)) {
             updateFoodPost(snakes, &fp);
             SCORE++;
-
             if((SCORE > 0) && (SCORE % 5 == 0)){
             addNewSnake(&snakes,&current_snake_capacity);
-           }
+            MOVING_SPEED += 2;
+            }
 
      }
 
