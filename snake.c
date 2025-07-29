@@ -1,8 +1,10 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_pixels.h>
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_timer.h>
 #include <SDL2/SDL_ttf.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -10,12 +12,14 @@
 #define FRAME_TIME 16.67
 #define SCREEN_WIDTH 1400
 #define SCREEN_HEIGHT 800
+#define FOOD_NORMAL 0
+#define FOOD_LARGE 1
 
-int MOVING_SPEED = 3;
+int MOVING_SPEED = 10;
 int SCORE = 0;
 int current_direction = 1;
 int CURRENT_LENGTH = 0;
-
+int normalFoodCount = 0;
 typedef struct Snake {
   int x;
   int y;
@@ -28,17 +32,30 @@ typedef struct Food {
   int y;
   int width;
   int height;
+  int food_type;
+  SDL_Color color;
 } food;
 
 int getRandomNumber(int maxCap) { return rand() % maxCap; }
 
-void updateFoodPost(snake *sp, food *fp) {
+void updateFoodPost(snake *sp, food *fp, int foodType) {
   int x = getRandomNumber(901);
   int y = getRandomNumber(701);
-
   while ((x == sp->x && y == sp->y) || (x == fp->x && y == fp->y)) {
     x = getRandomNumber(901);
     y = getRandomNumber(701);
+  }
+  if (foodType == FOOD_NORMAL) {
+    fp->height = 20;
+    fp->width = 20;
+    fp->color.g = 0;
+    printf("FOOD NORMAL\n");
+    fp->color.b = 255;
+  } else {
+    fp->color.g = 255;
+    fp->color.b = 0;
+    fp->height = 40;
+    fp->width = 40;
   }
 
   fp->y = y;
@@ -48,7 +65,6 @@ void updateFoodPost(snake *sp, food *fp) {
 int checkCollision(snake *sp, food *fp) {
   int snake_center_x = sp->x + sp->width / 2;
   int snake_center_y = sp->y + sp->height / 2;
-
   if (snake_center_x >= fp->x && snake_center_x < (fp->x + fp->width) &&
       snake_center_y >= fp->y && snake_center_y < (fp->y + fp->height)) {
     return 1;
@@ -63,7 +79,9 @@ void drawSnake(SDL_Renderer *ren, snake *sp) {
 }
 
 void drawFood(SDL_Renderer *ren, food *fp) {
-  SDL_SetRenderDrawColor(ren, 0xFF, 0xFF, 0x00, 0xFF);
+  SDL_SetRenderDrawColor(ren, fp->color.r, fp->color.g, fp->color.b,
+                         fp->color.a);
+  int osliationFactor = getRandomNumber(2);
   SDL_Rect rect = {fp->x, fp->y, fp->width, fp->height};
   SDL_RenderFillRect(ren, &rect);
 }
@@ -194,7 +212,12 @@ int main(int argc, char *argv[]) {
   int current_snake_capacity = 2;
   srand(time(NULL));
 
-  food fp = {getRandomNumber(1301), getRandomNumber(701), 20, 20};
+  food fp = {.x = getRandomNumber(1301),
+             .y = getRandomNumber(701),
+             .width = 20,
+             .height = 20,
+             .color = {0, 0, 0xFF, 0xFF}};
+
   snake *snakes = (snake *)malloc(sizeof(snake) * current_snake_capacity);
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -245,12 +268,20 @@ int main(int argc, char *argv[]) {
       free(snakes);
       exit(1);
     }
+
     if (checkCollision(&snakes[0], &fp)) {
-      updateFoodPost(snakes, &fp);
-      SCORE++;
-      if ((SCORE > 0) && (SCORE % 5 == 0)) {
+      if (normalFoodCount > 0 && normalFoodCount % 5 == 0) {
+        updateFoodPost(snakes, &fp, FOOD_LARGE);
+        SCORE += 5;
+        normalFoodCount++;
+      } else {
+        updateFoodPost(snakes, &fp, FOOD_NORMAL);
+        SCORE++;
+        normalFoodCount++;
+      }
+      if ((SCORE > 0) && (SCORE % 2 == 0)) {
         addNewSnake(&snakes, &current_snake_capacity);
-        MOVING_SPEED += 2;
+        MOVING_SPEED += 0.5;
       }
     }
 
@@ -268,7 +299,6 @@ int main(int argc, char *argv[]) {
     }
 
     drawFood(renderer, &fp);
-
     SDL_Color textColor = {255, 255, 255, 255}; // White color
 
     char scoreText[20];
